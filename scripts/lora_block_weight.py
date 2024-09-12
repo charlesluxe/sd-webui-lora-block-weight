@@ -53,37 +53,22 @@ BLOCKID26=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08"
 BLOCKID17=["BASE","IN01","IN02","IN04","IN05","IN07","IN08","M00","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11"]
 BLOCKID12=["BASE","IN04","IN05","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05"]
 BLOCKID20=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08"]
-BLOCKNUMS = [12,17,20,26]
-BLOCKIDS=[BLOCKID12,BLOCKID17,BLOCKID20,BLOCKID26]
+BLOCKID19=["IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08"]
 
-BLOCKS=["encoder",
-"diffusion_model_input_blocks_0_",
-"diffusion_model_input_blocks_1_",
-"diffusion_model_input_blocks_2_",
-"diffusion_model_input_blocks_3_",
-"diffusion_model_input_blocks_4_",
-"diffusion_model_input_blocks_5_",
-"diffusion_model_input_blocks_6_",
-"diffusion_model_input_blocks_7_",
-"diffusion_model_input_blocks_8_",
-"diffusion_model_input_blocks_9_",
-"diffusion_model_input_blocks_10_",
-"diffusion_model_input_blocks_11_",
+BLOCKNUMS = [12,17,20,26,19]
+BLOCKIDS=[BLOCKID12,BLOCKID17,BLOCKID20,BLOCKID26,BLOCKID19]
+
+FLUX_TO_SD={"FL00":"IN00","FL01":"IN01","FL02":"IN02","FL03":"IN03","FL04":"IN04","FL05":"IN05","FL06":"IN06","FL07":"IN07","FL08":"IN08","FL09":"M00","FL10":"OUT00","FL11":"OUT01","FL12":"OUT02","FL13":"OUT03","FL14":"OUT04","FL15":"OUT05","FL16":"OUT06","FL17":"OUT07","FL18":"OUT08"}
+
+SD_BLOCKS=["encoder",
+"diffusion_model_input_blocks_{0-11}_",
 "diffusion_model_middle_block_",
-"diffusion_model_output_blocks_0_",
-"diffusion_model_output_blocks_1_",
-"diffusion_model_output_blocks_2_",
-"diffusion_model_output_blocks_3_",
-"diffusion_model_output_blocks_4_",
-"diffusion_model_output_blocks_5_",
-"diffusion_model_output_blocks_6_",
-"diffusion_model_output_blocks_7_",
-"diffusion_model_output_blocks_8_",
-"diffusion_model_output_blocks_9_",
-"diffusion_model_output_blocks_10_",
-"diffusion_model_output_blocks_11_",
+"diffusion_model_output_blocks_{0-11}_",
 "embedders",
 "transformer_resblocks"]
+
+FLUX_BLOCKS=["diffusion_model_double_blocks_{0-18}_",
+"diffusion_model_single_blocks_{0-37}_"]
 
 loopstopper = True
 
@@ -194,7 +179,8 @@ class Script(modules.scripts.Script):
                 with gr.Column(scale=5):
                     bw_ratiotags= gr.TextArea(label="",value=ratiostags,visible =True,interactive =True,elem_id="lbw_ratios") 
             with gr.Accordion("XYZ plot",open = False):
-                gr.HTML(value='<p style= "word-wrap:break-word;">changeable blocks : BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11</p>')
+                gr.HTML(value='<p style= "word-wrap:break-word;">changeable blocks (SD 1.x, SD 2.x, SD 3) : BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11</p> \
+                               <p style= "word-wrap:break-word;">changeable blocks (Flux .1) : FL00,FL01,FL02,FL03,FL04,FL05,FL06,FL07,FL08,FL09,FL10,FL11,FL12,FL13,FL14,FL15,FL16,FL17,FL18</p>')
                 xyzsetting = gr.Radio(label = "Active",choices = ["Disable","XYZ plot","Effective Block Analyzer"], value ="Disable",type = "index") 
                 with gr.Row(visible = False) as esets:
                     diffcol = gr.Radio(label = "diff image color",choices = ["black","white"], value ="black",type = "value",interactive =True) 
@@ -208,7 +194,7 @@ class Script(modules.scripts.Script):
                 zmen = gr.Textbox(label="Z values",lines=1,value="",interactive =True,elem_id="lbw_zmen")
 
                 exmen = gr.Textbox(label="Range",lines=1,value="0.5,1",interactive =True,elem_id="lbw_exmen",visible = False) 
-                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)  
+                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL,19ALL(FLUX) also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)  
                 ecount = gr.Number(value=1, label="number of seed", interactive=True, visible = True)           
 
             with gr.Accordion("Weights setting",open = True):
@@ -443,11 +429,13 @@ class Script(modules.scripts.Script):
             if params.sampling_step in self.startsf:
                 shared.sd_model.forge_objects.unet.forge_unpatch_model(target_device=devices.device)
                 for m, l, e, s, lora_patches in zip(self.uf, self.lf, self.ef, self.startsf, list(shared.sd_model.forge_objects.unet.lora_patches.values())):
+                    isflux = is_flux(lora_patches)
+                    blocks = FLUX_BLOCKS if isflux else SD_BLOCKS
                     for key, vals in lora_patches.items():
                         n_vals = []
                         for v in [v for v in vals if v[1][0] in LORAS]:
                             if s is not None and s == params.sampling_step:
-                                ratio, _ = ratiodealer(key.replace(".","_"), l, e)
+                                ratio, _ = ratiodealer(isflux, blocks, key.replace(".","_"), l, e)
                                 n_vals.append((ratio * m, *v[1:]))
                             else:
                                 n_vals.append(v)
@@ -562,7 +550,7 @@ class Script(modules.scripts.Script):
                 base = lratios["XYZ"] if "XYZ" in lratios.keys() else "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
             else: return
 
-            for i, all in enumerate(["12ALL","17ALL","20ALL","26ALL"]):
+            for i, all in enumerate(["12ALL","17ALL","20ALL","26ALL","19ALL"]):
                 if eymen == all:
                     eymen = ",".join(BLOCKIDS[i])
 
@@ -609,7 +597,8 @@ class Script(modules.scripts.Script):
                 #print(f"weights from : {base}")
                 ids = [z.strip() for z in ids.split(' ')]
                 weights_t = [w.strip() for w in base.split(',')]
-                blockid =  BLOCKIDS[BLOCKNUMS.index(len(weights_t))] 
+                blockid = {b: i for i, b in enumerate(BLOCKIDS[BLOCKNUMS.index(len(weights_t))])}
+
                 if ids[0]!="NOT":
                     flagger=[False]*len(weights_t)
                     changer = True
@@ -619,13 +608,14 @@ class Script(modules.scripts.Script):
                 for id in ids:
                     if id =="NOT":continue
                     if "-" in id:
-                        it = [it.strip() for it in id.split('-')]
-                        if  blockid.index(it[1]) > blockid.index(it[0]):
-                            flagger[blockid.index(it[0]):blockid.index(it[1])+1] = [changer]*(blockid.index(it[1])-blockid.index(it[0])+1)
+                        it = [FLUX_TO_SD.get(it.strip(), it.strip()) for it in id.split('-')]
+                        if  blockid[it[1]] > blockid[it[0]]:
+                            flagger[blockid[it[0]]:blockid[it[1]]+1] = [changer]*(blockid[it[1]]-blockid[it[0]]+1)
                         else:
-                            flagger[blockid.index(it[1]):blockid.index(it[0])+1] = [changer]*(blockid.index(it[0])-blockid.index(it[1])+1)
+                            flagger[blockid[it[1]]:blockid[it[0]]+1] = [changer]*(blockid[it[0]]-blockid[it[1]]+1)
                     else:
-                        flagger[blockid.index(id)] =changer    
+                        id = FLUX_TO_SD.get(id, id)
+                        flagger[blockid[id]] =changer    
                 for i,f in enumerate(flagger):
                     if f:weights_t[i]=alpha
                 outext = ",".join(weights_t)
@@ -815,6 +805,8 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
         _, extra_network_data = extra_networks.parse_prompts(prompts)
     moduletypes = extra_network_data.keys()
 
+    lora_idx = 0
+    lora_patches_list = list(shared.sd_model.forge_objects.unet.lora_patches.values())
     for ltype in moduletypes:
         lorans = []
         lorars = []
@@ -828,6 +820,11 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
         go_lbw = False
         
         if not (ltype == "lora" or ltype == "lyco") : continue
+
+        lora_patches = lora_patches_list[lora_idx]
+        lora_idx = lora_idx + 1
+        
+        isflux = False
         for called in extra_network_data[ltype]:
             items = called.items
             setnow = False
@@ -842,9 +839,17 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
             stop = syntaxdealer(items,"stop=",None)
             start, stop = stepsdealer(syntaxdealer(items,"step=",None), start, stop)
             
+            isflux = is_flux(lora_patches)
             if weights is not None and (weights in lratios or any(weights.count(",") == x - 1 for x in BLOCKNUMS)):
                 wei = lratios[weights] if weights in lratios else weights
                 ratios = [w.strip() for w in wei.split(",")]
+                if isflux and weights == "XYZ":
+                    tmp_ratios = [0] * 19
+                    for i, b26 in enumerate(BLOCKID26):
+                        if b26 in BLOCKID19:
+                            tmp_ratios[BLOCKID19.index(b26)] = ratios[i]
+                    ratios = tmp_ratios
+
                 for i,r in enumerate(ratios):
                     if r =="R":
                         ratios[i] = round(random.random(),3)
@@ -890,7 +895,7 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
 
         if self.isnet: ltype = "nets"
         if forge: ltype = "forge"
-        if go_lbw or load: load_loras_blocks(self, lorans,lorars,te_multipliers,unet_multipliers,elements,ltype, starts=starts)
+        if go_lbw or load: load_loras_blocks(self, isflux, lorans,lorars,te_multipliers,unet_multipliers,elements,ltype, starts=starts)
 
 def stepsdealer(step, start, stop):
     if step is None or "-" not in step:
@@ -937,7 +942,7 @@ def getinheritedweight(weight, offset):
     else:
         return float(weight) 
 
-def load_loras_blocks(self, names, lwei,te,unet,elements,ltype = "lora", starts = None):
+def load_loras_blocks(self, isflux, names, lwei,te,unet,elements,ltype = "lora", starts = None):
     oldnew=[]
     if "lora" == ltype:
         lora = importer(self)
@@ -1111,8 +1116,10 @@ def effectivechecker(imgs,ss,ls,diffcol,thresh,revxy):
 def lbw(lora,lwei,elemental):
     elemental = elemental.split(",")
     errormodules = []
+    isflux = is_flux(lora.modules)
+    blocks = FLUX_BLOCKS if isflux else SD_BLOCKS
     for key in lora.modules.keys():
-        ratio, errormodule = ratiodealer(key, lwei, elemental)
+        ratio, errormodule = ratiodealer(isflux, blocks, key, lwei, elemental)
         if errormodule:
             errormodules.append(errormodule)
 
@@ -1155,11 +1162,13 @@ def lbwf(after_applying_lora_patches, ms, lwei, elements, starts, func_ratio):
                 break
         if lora_patches is None:
             continue
+        isflux = is_flux(lora_patches)
+        blocks = FLUX_BLOCKS if isflux else SD_BLOCKS
         for key, vals in lora_patches.items():
             n_vals = []
             lvs = [v for v in vals if v[1][0] in LORAS]
             for v in lvs:
-                ratio, errormodule = ratiodealer(key.replace(".","_"), l, e)
+                ratio, errormodule = ratiodealer(isflux, blocks, key.replace(".","_"), l, e)
                 n_vals.append([func_ratio(ratio, m, s), *v[1:]])
                 if errormodule:
                     errormodules.append(errormodule)
@@ -1175,15 +1184,35 @@ def lbwf(after_applying_lora_patches, ms, lwei, elements, starts, func_ratio):
     if len(errormodules) > 0:
         print("Unknown modules:", errormodules)
 
-def ratiodealer(key, lwei, elemental):
+def ratiodealer(isflux, org_blocks, key, lwei, elemental):
     ratio = 1
     picked = False
     errormodules = []
     currentblock = 0
-    
-    for i,block in enumerate(BLOCKS):
-        if block in key:
-            if i == 26 or i == 27:
+
+    rec = re.compile("^(.*)\\{(\\d+-\\d+)\\}(.*)$")
+    blocks = []
+    idx = 0
+    for block in org_blocks:
+        res = rec.match(block)
+        if res:
+            min, max = res.group(2).split("-")
+            prefix, suffix = res.group(1), res.group(3)
+            for n in range(int(min), int(max) + 1):
+                if isflux and idx >= 19:
+                    mg_idx = int((idx - 19) / 2)
+                    blocks[mg_idx].append((mg_idx, f"{prefix}{str(n)}{suffix}"))
+                else:
+                    blocks.append([(idx, f"{prefix}{str(n)}{suffix}")])
+                idx += 1
+        else:
+            blocks.append([(idx, block)])
+            idx += 1
+
+    for block in blocks:
+        for i in [i for i, b in block if b in key]:
+            if not isflux and (i == 26 or i == 27):
+                # BASE
                 i = 0
             ratio = lwei[i] 
             picked = True
@@ -1248,6 +1277,9 @@ ATTNDEEPON:IN05-OUT05:attn:1\n\n\
 ATTNDEEPOFF:IN05-OUT05:attn:0\n\n\
 PROJDEEPOFF:IN05-OUT05:proj:0\n\n\
 XYZ:::1"
+
+def is_flux(lora_patches):
+    return any(".double_" in key or ".single_" in key for key in lora_patches.keys())
 
 def to26(ratios):
     ids = BLOCKIDS[BLOCKNUMS.index(len(ratios))]
