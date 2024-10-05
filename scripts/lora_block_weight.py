@@ -53,12 +53,33 @@ BLOCKID26=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08"
 BLOCKID17=["BASE","IN01","IN02","IN04","IN05","IN07","IN08","M00","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11"]
 BLOCKID12=["BASE","IN04","IN05","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05"]
 BLOCKID20=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08"]
-BLOCKID19=["IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08"]
+BLOCKID19=["FL00","FL01","FL02","FL03","FL04","FL05","FL06","FL07","FL08","FL09","FL10","FL11","FL12","FL13","FL14","FL15","FL16","FL17","FL18"]
+BLOCKID57=["DB00","DB01","DB02","DB03","DB04","DB05","DB06","DB07","DB08","DB09","DB10","DB11","DB12","DB13","DB14","DB15","DB16","DB17","DB18","SG00","SG01","SG02","SG03","SG04","SG05","SG06","SG07","SG08","SG09","SG10","SG11","SG12","SG13","SG14","SG15","SG16","SG17","SG18","SG19","SG20","SG21","SG22","SG23","SG24","SG25","SG26","SG27","SG28","SG29","SG30","SG31","SG32","SG33","SG34","SG35","SG36","SG37"]
 
-BLOCKNUMS = [12,17,20,26,19]
-BLOCKIDS=[BLOCKID12,BLOCKID17,BLOCKID20,BLOCKID26,BLOCKID19]
+BLOCKNUMS = [12,17,20,26,19,57]
+BLOCKIDS=[BLOCKID12,BLOCKID17,BLOCKID20,BLOCKID26,BLOCKID19,BLOCKID57]
 
-FLUX_TO_SD={"FL00":"IN00","FL01":"IN01","FL02":"IN02","FL03":"IN03","FL04":"IN04","FL05":"IN05","FL06":"IN06","FL07":"IN07","FL08":"IN08","FL09":"M00","FL10":"OUT00","FL11":"OUT01","FL12":"OUT02","FL13":"OUT03","FL14":"OUT04","FL15":"OUT05","FL16":"OUT06","FL17":"OUT07","FL18":"OUT08"}
+FLUX19_TO_FLUX57={
+    "FL00":["DB00","SG00","SG01"],
+    "FL01":["DB01","SG02","SG03"],
+    "FL02":["DB02","SG04","SG05"],
+    "FL03":["DB03","SG06","SG07"],
+    "FL04":["DB04","SG08","SG09"],
+    "FL05":["DB05","SG10","SG11"],
+    "FL06":["DB06","SG12","SG13"],
+    "FL07":["DB07","SG14","SG15"],
+    "FL08":["DB08","SG16","SG17"],
+    "FL09":["DB09","SG18","SG19"],
+    "FL10":["DB10","SG20","SG21"],
+    "FL11":["DB11","SG22","SG23"],
+    "FL12":["DB12","SG24","SG25"],
+    "FL13":["DB13","SG26","SG27"],
+    "FL14":["DB14","SG28","SG29"],
+    "FL15":["DB15","SG30","SG31"],
+    "FL16":["DB16","SG32","SG33"],
+    "FL17":["DB17","SG34","SG35"],
+    "FL18":["DB18","SG36","SG37"]
+}
 
 SD_BLOCKS=["encoder",
 "diffusion_model_input_blocks_{0-11}_",
@@ -180,7 +201,8 @@ class Script(modules.scripts.Script):
                     bw_ratiotags= gr.TextArea(label="",value=ratiostags,visible =True,interactive =True,elem_id="lbw_ratios") 
             with gr.Accordion("XYZ plot",open = False):
                 gr.HTML(value='<p style= "word-wrap:break-word;">changeable blocks (SD 1.x, SD 2.x, SD 3) : BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11</p> \
-                               <p style= "word-wrap:break-word;">changeable blocks (Flux .1) : FL00,FL01,FL02,FL03,FL04,FL05,FL06,FL07,FL08,FL09,FL10,FL11,FL12,FL13,FL14,FL15,FL16,FL17,FL18</p>')
+                               <p style= "word-wrap:break-word;">changeable blocks (Flux .1) : FL00,FL01,FL02,FL03,FL04,FL05,FL06,FL07,FL08,FL09,FL10,FL11,FL12,FL13,FL14,FL15,FL16,FL17,FL18<br/> \
+                               or DB00,DB01,DB02,DB03,DB04,DB05,DB06,DB07,DB08,DB09,DB10,DB11,DB12,DB13,DB14,DB15,DB16,DB17,DB18,SG00,SG01,SG02,SG03,SG04,SG05,SG06,SG07,SG08,SG09,SG10,SG11,SG12,SG13,SG14,SG15,SG16,SG17,SG18,SG19,SG20,SG21,SG22,SG23,SG24,SG25,SG26,SG27,SG28,SG29,SG30,SG31,SG32,SG33,SG34,SG35,SG36,SG37</p>')
                 xyzsetting = gr.Radio(label = "Active",choices = ["Disable","XYZ plot","Effective Block Analyzer"], value ="Disable",type = "index") 
                 with gr.Row(visible = False) as esets:
                     diffcol = gr.Radio(label = "diff image color",choices = ["black","white"], value ="black",type = "value",interactive =True) 
@@ -194,7 +216,7 @@ class Script(modules.scripts.Script):
                 zmen = gr.Textbox(label="Z values",lines=1,value="",interactive =True,elem_id="lbw_zmen")
 
                 exmen = gr.Textbox(label="Range",lines=1,value="0.5,1",interactive =True,elem_id="lbw_exmen",visible = False) 
-                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL,19ALL(FLUX) also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)  
+                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL,19ALL(FLUX),57ALL(FLUX) also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)  
                 ecount = gr.Number(value=1, label="number of seed", interactive=True, visible = True)           
 
             with gr.Accordion("Weights setting",open = True):
@@ -550,7 +572,7 @@ class Script(modules.scripts.Script):
                 base = lratios["XYZ"] if "XYZ" in lratios.keys() else "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
             else: return
 
-            for i, all in enumerate(["12ALL","17ALL","20ALL","26ALL","19ALL"]):
+            for i, all in enumerate(["12ALL","17ALL","20ALL","26ALL","19ALL","57ALL"]):
                 if eymen == all:
                     eymen = ",".join(BLOCKIDS[i])
 
@@ -558,7 +580,11 @@ class Script(modules.scripts.Script):
                 xmen,ymen = exmen,eymen
                 xtype,ytype = "values","ID"
                 ebase = xmen.split(",")[1]
-                ebase = [ebase.strip()]*26
+                first_block = ymen.split(",")[0].split("-")[0]
+                if first_block.split('-')[0] in BLOCKID19 or first_block.split('-')[0] in BLOCKID57:
+                    ebase = [ebase.strip()]*57
+                else:
+                    ebase = [ebase.strip()]*26
                 base = ",".join(ebase)
                 ztype = ""
                 if ecount > 1:
@@ -608,14 +634,24 @@ class Script(modules.scripts.Script):
                 for id in ids:
                     if id =="NOT":continue
                     if "-" in id:
-                        it = [FLUX_TO_SD.get(it.strip(), it.strip()) for it in id.split('-')]
-                        if  blockid[it[1]] > blockid[it[0]]:
-                            flagger[blockid[it[0]]:blockid[it[1]]+1] = [changer]*(blockid[it[1]]-blockid[it[0]]+1)
+                        it = [it.strip() for it in id.split('-')]
+                        if it[1] in FLUX19_TO_FLUX57 and it[0] in FLUX19_TO_FLUX57:
+                            for fl in zip(FLUX19_TO_FLUX57[it[0]], FLUX19_TO_FLUX57[it[1]]):
+                                if  blockid[fl[1]] > blockid[fl[0]]:
+                                    flagger[blockid[fl[0]]:blockid[fl[1]]+1] = [changer]*(blockid[fl[1]]-blockid[fl[0]]+1)
+                                else:
+                                    flagger[blockid[fl[1]]:blockid[fl[0]]+1] = [changer]*(blockid[fl[0]]-blockid[fl[1]]+1)
                         else:
-                            flagger[blockid[it[1]]:blockid[it[0]]+1] = [changer]*(blockid[it[0]]-blockid[it[1]]+1)
+                            if  blockid[it[1]] > blockid[it[0]]:
+                                flagger[blockid[it[0]]:blockid[it[1]]+1] = [changer]*(blockid[it[1]]-blockid[it[0]]+1)
+                            else:
+                                flagger[blockid[it[1]]:blockid[it[0]]+1] = [changer]*(blockid[it[0]]-blockid[it[1]]+1)
                     else:
-                        id = FLUX_TO_SD.get(id, id)
-                        flagger[blockid[id]] =changer    
+                        if id in FLUX19_TO_FLUX57:
+                            for fl in FLUX19_TO_FLUX57[id]:
+                                flagger[blockid[fl]] =changer    
+                        else:
+                            flagger[blockid[id]] =changer    
                 for i,f in enumerate(flagger):
                     if f:weights_t[i]=alpha
                 outext = ",".join(weights_t)
@@ -844,11 +880,7 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
                 wei = lratios[weights] if weights in lratios else weights
                 ratios = [w.strip() for w in wei.split(",")]
                 if isflux and weights == "XYZ":
-                    tmp_ratios = [0] * 19
-                    for i, b26 in enumerate(BLOCKID26):
-                        if b26 in BLOCKID19:
-                            tmp_ratios[BLOCKID19.index(b26)] = ratios[i]
-                    ratios = tmp_ratios
+                    ratios = to57(ratios)
 
                 for i,r in enumerate(ratios):
                     if r =="R":
@@ -861,11 +893,18 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
                     else:
                         ratios[i] = float(r)
                         
-                if len(ratios) != 26:
-                    ratios = to26(ratios)
+                if isflux:
+                    if len(ratios) != 57:
+                        ratios = to57(ratios)
+                else:
+                    if len(ratios) != 26:
+                        ratios = to26(ratios)
                 setnow = True
             else:
-                ratios = [1] * 26
+                if isflux:
+                    ratios = [1] * 57
+                else:
+                    ratios = [1] * 26
 
             if elem in elementals:
                 setnow = True
@@ -1192,25 +1231,18 @@ def ratiodealer(isflux, org_blocks, key, lwei, elemental):
 
     rec = re.compile("^(.*)\\{(\\d+-\\d+)\\}(.*)$")
     blocks = []
-    idx = 0
     for block in org_blocks:
         res = rec.match(block)
         if res:
             min, max = res.group(2).split("-")
             prefix, suffix = res.group(1), res.group(3)
             for n in range(int(min), int(max) + 1):
-                if isflux and idx >= 19:
-                    mg_idx = int((idx - 19) / 2)
-                    blocks[mg_idx].append((mg_idx, f"{prefix}{str(n)}{suffix}"))
-                else:
-                    blocks.append([(idx, f"{prefix}{str(n)}{suffix}")])
-                idx += 1
+                blocks.append(f"{prefix}{str(n)}{suffix}")
         else:
-            blocks.append([(idx, block)])
-            idx += 1
+            blocks.append(block)
 
-    for block in blocks:
-        for i in [i for i, b in block if b in key]:
+    for i, block in enumerate(blocks):
+        if block in key:
             if not isflux and (i == 26 or i == 27):
                 # BASE
                 i = 0
@@ -1286,6 +1318,17 @@ def to26(ratios):
     output = [0]*26
     for i, id in enumerate(ids):
         output[BLOCKID26.index(id)] = ratios[i]
+    return output
+
+def to57(ratios):
+    if len(ratios) == 57:
+        return ratios
+    output = [0]*57
+    for i in range(len(BLOCKID57)):
+        if i >= 19:
+            output[i] = ratios[int((i - 19) / 2)]
+        else:
+            output[i] = ratios[i]
     return output
 
 def checkloadcond(l:str)->bool:
