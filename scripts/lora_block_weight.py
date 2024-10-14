@@ -46,9 +46,10 @@ princ = False
 
 try:
     from modules_forge import forge_version
-    forge = True
+    version = float(re.match(r"^(\d+(?:\.\d+)?)", forge_version.version).group())
+    forge, reforge = (True, False) if version >= 2 else (False, True)
 except:
-    forge = False
+    forge, reforge = (False, False)
 
 BLOCKID26=["BASE","IN00","IN01","IN02","IN03","IN04","IN05","IN06","IN07","IN08","IN09","IN10","IN11","M00","OUT00","OUT01","OUT02","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11"]
 BLOCKID17=["BASE","IN01","IN02","IN04","IN05","IN07","IN08","M00","OUT03","OUT04","OUT05","OUT06","OUT07","OUT08","OUT09","OUT10","OUT11"]
@@ -450,11 +451,7 @@ class Script(modules.scripts.Script):
 
         if forge and self.active:
             def apply_weight(stop = False):
-                if not stop:
-                    flag_step = self.startsf
-                else:
-                    flag_step = self.stopsf
-
+                flag_step = self.startsf if not stop else self.stopsf
                 lora_patches = shared.sd_model.forge_objects.unet.lora_patches
                 refresh_keys = {}
                 for m, l, e, s, (patch_key, lora_patch) in zip(self.uf, self.lf, self.ef, flag_step, list(lora_patches.items())):
@@ -491,6 +488,33 @@ class Script(modules.scripts.Script):
                         patch = lora_patches[new_key]
                         del lora_patches[new_key]
                         lora_patches[refresh_key] = patch
+
+            if params.sampling_step in self.startsf:
+                apply_weight()
+
+            if params.sampling_step in self.stopsf:
+                apply_weight(stop=True)
+
+        if reforge and self.active:
+            def apply_weight(stop = False):
+                flag_step = self.startsf if not stop else self.stopsf
+                shared.sd_model.forge_objects.unet.unpatch_model(device_to=devices.device)
+                isflux = is_flux(shared.sd_model.forge_objects.unet.patches)
+                blocks = FLUX_BLOCKS if isflux else SD_BLOCKS
+                for key, vals in shared.sd_model.forge_objects.unet.patches.items():
+                    n_vals = []
+                    lvals = [val for val in vals if val[1][0] in LORAS]
+                    for s, v, m, l, e in zip(flag_step, lvals, self.uf, self.lf, self.ef):
+                        if s is not None and s == params.sampling_step:
+                            if not stop:
+                                ratio, _ = ratiodealer(isflux, blocks, key.replace(".","_"), l, e)
+                                n_vals.append((ratio * m, *v[1:]))
+                            else:
+                                n_vals.append((0, *v[1:]))
+                        else:
+                            n_vals.append(v)
+                    shared.sd_model.forge_objects.unet.patches[key] = n_vals
+                shared.sd_model.forge_objects.unet.patch_model()
 
             if params.sampling_step in self.startsf:
                 apply_weight()
@@ -560,6 +584,10 @@ class Script(modules.scripts.Script):
             sd_models.model_data.get_sd_model().current_lora_hash = None
             shared.sd_model.forge_objects_after_applying_lora.unet.forge_unpatch_model()
             shared.sd_model.forge_objects_after_applying_lora.clip.patcher.forge_unpatch_model()
+        if reforge:
+            sd_models.model_data.get_sd_model().current_lora_hash = None
+            shared.sd_model.forge_objects_after_applying_lora.unet.unpatch_model()
+            shared.sd_model.forge_objects_after_applying_lora.clip.patcher.unpatch_model()
 
         global lxyz,lzyx,xyelem             
         lxyz = lzyx = xyelem = ""
@@ -862,8 +890,12 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
         _, extra_network_data = extra_networks.parse_prompts(prompts)
     moduletypes = extra_network_data.keys()
 
-    lora_idx = 0
-    lora_patches_list = list(shared.sd_model.forge_objects.unet.lora_patches.values())
+    if forge:
+        lora_idx = 0
+        lora_patches_list = list(shared.sd_model.forge_objects.unet.lora_patches.values())
+    elif reforge:
+        lora_patches_list = shared.sd_model.forge_objects.unet.patches
+
     for ltype in moduletypes:
         lorans = []
         lorars = []
@@ -878,8 +910,11 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
         
         if not (ltype == "lora" or ltype == "lyco") : continue
 
-        lora_patches = lora_patches_list[lora_idx]
-        lora_idx = lora_idx + 1
+        if forge:
+            lora_patches = lora_patches_list[lora_idx]
+            lora_idx = lora_idx + 1
+        elif reforge:
+            lora_patches = lora_patches_list
         
         isflux = False
         for called in extra_network_data[ltype]:
@@ -955,6 +990,7 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
 
         if self.isnet: ltype = "nets"
         if forge: ltype = "forge"
+        if reforge: ltype = "reforge"
         if go_lbw or load: load_loras_blocks(self, isflux, lorans,lorars,te_multipliers,unet_multipliers,elements,ltype, starts=starts)
 
 def stepsdealer(step, start, stop):
@@ -1042,6 +1078,13 @@ def load_loras_blocks(self, isflux, names, lwei,te,unet,elements,ltype = "lora",
 
         lora_patches = shared.sd_model.forge_objects_after_applying_lora.clip.patcher.lora_patches
         lbwf(lora_patches, te, lwei, elements, starts)
+
+    elif "reforge" == ltype:
+        lora_patches = shared.sd_model.forge_objects_after_applying_lora.unet.patches
+        lbwrf(lora_patches, unet, lwei, elements, starts)
+
+        lora_patches = shared.sd_model.forge_objects_after_applying_lora.clip.patcher.patches
+        lbwrf(lora_patches, te, lwei, elements, starts)
 
     try:
         import lora_ctl_network as ctl
@@ -1239,6 +1282,23 @@ def lbwf(after_applying_lora_patches, ms, lwei, elements, starts):
         after_applying_lora_patches[new_hash] = after_applying_lora_patches[hash]
         if new_hash != hash:
             del after_applying_lora_patches[hash]
+
+    if len(errormodules) > 0:
+        print("Unknown modules:", errormodules)
+
+def lbwrf(after_applying_lora_patches, ms, lwei, elements, starts):
+    errormodules = []
+    isflux = is_flux(after_applying_lora_patches)
+    blocks = FLUX_BLOCKS if isflux else SD_BLOCKS
+    for key, vals in after_applying_lora_patches.items():
+        n_vals = []
+        lvals = [val for val in vals if val[1][0] in LORAS]
+        for v, m, l, e ,s in zip(lvals, ms, lwei, elements, starts):
+            ratio, errormodules = ratiodealer(isflux, blocks, key.replace(".","_"), l, e)
+            ratio, errormodule = ratiodealer(isflux, blocks, key.replace(".","_"), l, e)
+            n_vals.append((ratio * m if s is None else 0, *v[1:]))
+            if errormodule:errormodules.append(errormodule)
+        after_applying_lora_patches[key] = n_vals
 
     if len(errormodules) > 0:
         print("Unknown modules:", errormodules)
