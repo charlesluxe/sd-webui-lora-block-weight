@@ -890,11 +890,14 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
         _, extra_network_data = extra_networks.parse_prompts(prompts)
     moduletypes = extra_network_data.keys()
 
+    lora_idx = 0
     if forge:
-        lora_idx = 0
         lora_patches_list = list(shared.sd_model.forge_objects.unet.lora_patches.values())
     elif reforge:
         lora_patches_list = shared.sd_model.forge_objects.unet.patches
+    else:
+        lora = importer(self)
+        lora_patches_list = lora.loaded_loras
 
     for ltype in moduletypes:
         lorans = []
@@ -912,10 +915,12 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
 
         if forge:
             lora_patches = lora_patches_list[lora_idx]
-            lora_idx = lora_idx + 1
         elif reforge:
             lora_patches = lora_patches_list
-        
+        else:
+            lora_patches = lora_patches_list[lora_idx].modules
+        lora_idx = lora_idx + 1
+
         isflux = False
         for called in extra_network_data[ltype]:
             items = called.items
@@ -1391,6 +1396,11 @@ PROJDEEPOFF:IN05-OUT05:proj:0\n\n\
 XYZ:::1"
 
 def is_flux(lora_patches):
+    if not forge and not reforge:
+        # Flux LoRA is not currently supported in A1111.
+        return False
+    if lora_patches is None:
+        return False
     return any(".double_" in key or ".single_" in key for key in lora_patches.keys())
 
 def to26(ratios):
