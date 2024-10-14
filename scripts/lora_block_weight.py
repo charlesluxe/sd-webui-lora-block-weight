@@ -586,8 +586,8 @@ class Script(modules.scripts.Script):
             shared.sd_model.forge_objects_after_applying_lora.clip.patcher.forge_unpatch_model()
         if reforge:
             sd_models.model_data.get_sd_model().current_lora_hash = None
-            shared.sd_model.forge_objects_after_applying_lora.unet.unpatch_model()
-            shared.sd_model.forge_objects_after_applying_lora.clip.patcher.unpatch_model()
+            # shared.sd_model.forge_objects_after_applying_lora.unet.unpatch_model()
+            # shared.sd_model.forge_objects_after_applying_lora.clip.patcher.unpatch_model()
 
         global lxyz,lzyx,xyelem             
         lxyz = lzyx = xyelem = ""
