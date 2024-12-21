@@ -248,7 +248,7 @@ class Script(modules.scripts.Script):
                     m_add_save = gr.Button(value="Add to presets and Save",size="sm",variant='primary')
                     m_name = gr.Textbox(value="",label="Identifier")
                 with gr.Row():
-                    m_type = gr.Radio(label="Weights type",choices=["17(1.X/2.X)", "26(1.X/2.X full)", "12(XL)","20(XL full)"], value="17(1.X/2.X)")
+                    m_type = gr.Radio(label="Weights type",choices=["17(1.X/2.X)", "26(1.X/2.X full)", "12(XL)", "20(XL full)", "19(FLUX)", "57(FLUX full)"], value="17(1.X/2.X)")
                 with gr.Row():
                     m_set_0 = gr.Button(value="Set All 0",variant='primary')
                     m_set_1 = gr.Button(value="Set All 1",variant='primary')
@@ -264,8 +264,11 @@ class Script(modules.scripts.Script):
                 with gr.Row():
                     with gr.Column(scale=2, min_width=200):
                         ins = [gr.Slider(label=block, minimum=-1.0, maximum=1, step=0.1, value=0, interactive=True) for block in BLOCKID26[1:13]]
+                        flux_mg = [gr.Slider(label=block, minimum=-1.0, maximum=1, step=0.1, value=0, interactive=True) for block in BLOCKID19]
+                        flux_full_db = [gr.Slider(label=block, minimum=-1.0, maximum=1, step=0.1, value=0, interactive=True) for block in BLOCKID57[0:19]]
                     with gr.Column(scale=2, min_width=200):
                         outs = [gr.Slider(label=block, minimum=-1.0, maximum=1, step=0.1, value=0, interactive=True) for block in reversed(BLOCKID26[14:])]
+                        flux_full_sg = [gr.Slider(label=block, minimum=-1.0, maximum=1, step=0.1, value=0, interactive=True) for block in reversed(BLOCKID57[19:])]
                 with gr.Row():
                     with gr.Column(scale=1, min_width=100):
                         gr.Slider(visible=False)
@@ -279,9 +282,22 @@ class Script(modules.scripts.Script):
                         if block.label not in BLOCKID17:
                             block.visible = False
 
-                m_set_0.click(fn=lambda x:[0]*26 + [",".join(["0"]*int(x[:2]))],inputs=[m_type],outputs=blocks + [m_text])
-                m_set_1.click(fn=lambda x:[1]*26 + [",".join(["1"]*int(x[:2]))],inputs=[m_type],outputs=blocks + [m_text])
-                m_custom.click(fn=lambda x,y:[x]*26 + [",".join([str(x)]*int(y[:2]))],inputs=[m_custom_v,m_type],outputs=blocks + [m_text])
+                    blocks_flux = flux_mg
+                    for block in blocks_flux:
+                        if block.label not in BLOCKID19:
+                            block.visible = False
+
+                    blocks_flux_full = flux_full_db + flux_full_sg
+                    for block in blocks_flux_full:
+                        if block.label not in BLOCKID57:
+                            block.visible = False
+
+                def set_all(sdver, val):
+                    return [val]*26 + [val]*19 + [val]*57 + [",".join([str(val)]*int(sdver[:2]))]
+
+                m_set_0.click(fn=lambda sdver: set_all(sdver, 0), inputs=[m_type], outputs=blocks + blocks_flux + blocks_flux_full + [m_text])
+                m_set_1.click(fn=lambda sdver: set_all(sdver, 1), inputs=[m_type], outputs=blocks + blocks_flux + blocks_flux_full + [m_text])
+                m_custom.click(fn=lambda sdver, val: set_all(sdver, val), inputs=[m_type, m_custom_v], outputs=blocks + blocks_flux + blocks_flux_full + [m_text])
 
                 def addweights(weights, id, presets, save = False):
                     if id == "":id = "NONAME"
@@ -303,34 +319,82 @@ class Script(modules.scripts.Script):
 
                     return "\n".join(lines)
 
-                def changetheblocks(sdver,*blocks):
+                def changetheblocks(sdver, *all_blocks):
+                    blocks = all_blocks[:26]
+                    blocks_flux = all_blocks[26:45]
+                    blocks_flux_all = all_blocks[45:]
+
+                    is_flux = False
+                    is_full = False
+                    if "FLUX" in sdver:
+                        is_flux = True
+                    if "full" in sdver:
+                        is_full = True
                     sdver = int(sdver[:2])
                     output = []
                     targ_blocks = BLOCKIDS[BLOCKNUMS.index(sdver)]
-                    for i, block in enumerate(BLOCKID26):
-                        if block in targ_blocks:
-                            output.append(str(blocks[i]))
-                    return [",".join(output)] + [gr.update(visible = True if block in targ_blocks else False) for block in BLOCKID26]
+                    if is_flux:
+                        if is_full:
+                            for i, block in enumerate(BLOCKID57):
+                                if block in targ_blocks:
+                                    output.append(str(blocks_flux_all[i]))
+                            return [",".join(output)] + [gr.update(visible=False) for _ in BLOCKID26] \
+                                + [gr.update(visible=False) for _ in BLOCKID19] \
+                                + [gr.update(visible=True if block in targ_blocks else False) for block in BLOCKID57]
+                        else:
+                            for i, block in enumerate(BLOCKID19):
+                                if block in targ_blocks:
+                                    output.append(str(blocks_flux[i]))
+                            return [",".join(output)] + [gr.update(visible=False) for _ in BLOCKID26] \
+                                + [gr.update(visible=True if block in targ_blocks else False) for block in BLOCKID19] \
+                                + [gr.update(visible=False) for _ in BLOCKID57]
+                    else:
+                        for i, block in enumerate(BLOCKID26):
+                            if block in targ_blocks:
+                                output.append(str(blocks[i]))
+                        return [",".join(output)] + [gr.update(visible=True if block in targ_blocks else False) for block in BLOCKID26] \
+                            + [gr.update(visible=False) for _ in BLOCKID19] \
+                            + [gr.update(visible=False) for _ in BLOCKID57]
                 
-                m_add.click(fn=addweights, inputs=[m_text,m_name,lbw_loraratios],outputs=[lbw_loraratios])
-                m_add_save.click(fn=addweights, inputs=[m_text,m_name,lbw_loraratios, d_true],outputs=[lbw_loraratios])
-                m_type.change(fn=changetheblocks, inputs=[m_type] + blocks,outputs=[m_text] + blocks)
+                m_add.click(fn=addweights, inputs=[m_text, m_name, lbw_loraratios], outputs=[lbw_loraratios])
+                m_add_save.click(fn=addweights, inputs=[m_text, m_name, lbw_loraratios, d_true], outputs=[lbw_loraratios])
+                m_type.change(fn=changetheblocks, inputs=[m_type] + blocks + blocks_flux + blocks_flux_full, outputs=[m_text] + blocks + blocks_flux + blocks_flux_full)
 
                 d_true = gr.Checkbox(value = True,visible = False)
                 d_false = gr.Checkbox(value = False,visible = False)
 
             lbw_useblocks.change(fn=lambda x:gr.update(label = f"LoRA Block Weight : {'Active' if x else 'Not Active'}"),inputs=lbw_useblocks, outputs=[acc])
 
-        def makeweights(sdver, *blocks):
+        def makeweights(sdver, *all_blocks):
+            blocks = all_blocks[:26]
+            blocks_flux = all_blocks[26:45]
+            blocks_flux_all = all_blocks[45:]
+
+            is_flux = False
+            is_full = False
+            if "FLUX" in sdver:
+                is_flux = True
+            if "full" in sdver:
+                is_full = True
             sdver = int(sdver[:2])
             output = []
             targ_blocks = BLOCKIDS[BLOCKNUMS.index(sdver)]
-            for i, block in enumerate(BLOCKID26):
-                if block in targ_blocks:
-                    output.append(str(blocks[i]))
+            if is_flux:
+                if is_full:
+                    for i, block in enumerate(BLOCKID57):
+                        if block in targ_blocks:
+                            output.append(str(blocks_flux_all[i]))
+                else:
+                    for i, block in enumerate(BLOCKID19):
+                        if block in targ_blocks:
+                            output.append(str(blocks_flux[i]))
+            else:
+                for i, block in enumerate(BLOCKID26):
+                    if block in targ_blocks:
+                        output.append(str(blocks[i]))
             return ",".join(output)
 
-        changes = [b.release(fn=makeweights,inputs=[m_type] + blocks,outputs=[m_text]) for b in blocks]
+        changes = [b.release(fn=makeweights,inputs=[m_type] + blocks + blocks_flux + blocks_flux_full,outputs=[m_text]) for b in blocks + blocks_flux + blocks_flux_full]
 
         import subprocess
         def openeditors(b):
