@@ -956,9 +956,9 @@ def loradealer(self, prompts,lratios,elementals, extra_network_data = None):
 
     lora_idx = 0
     if forge:
-        lora_patches_list = list(shared.sd_model.forge_objects.unet.lora_patches.values())
+        lora_patches_list = list(shared.sd_model.forge_objects_after_applying_lora.unet.lora_patches.values())
     elif reforge:
-        lora_patches_list = shared.sd_model.forge_objects.unet.patches
+        lora_patches_list = shared.sd_model.forge_objects_after_applying_lora.unet.patches
     else:
         lora = importer(self)
         lora_patches_list = lora.loaded_loras
