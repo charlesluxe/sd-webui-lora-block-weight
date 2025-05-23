@@ -202,9 +202,9 @@ class Script(modules.scripts.Script):
                 with gr.Column(scale=5):
                     bw_ratiotags= gr.TextArea(label="",value=ratiostags,visible =True,interactive =True,elem_id="lbw_ratios") 
             with gr.Accordion("XYZ plot",open = False):
-                gr.HTML(value='<p style= "word-wrap:break-word;">changeable blocks (SD 1.x, SD 2.x, SD 3) : BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11</p> \
+                gr.HTML(value='<p style= "word-wrap:break-word;">changeable blocks (SD 1.x, SD 2.x, SD 3) : BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11<br/> \
                                <p style= "word-wrap:break-word;">changeable blocks (Flux .1) : FL00,FL01,FL02,FL03,FL04,FL05,FL06,FL07,FL08,FL09,FL10,FL11,FL12,FL13,FL14,FL15,FL16,FL17,FL18<br/> \
-                               or DB00,DB01,DB02,DB03,DB04,DB05,DB06,DB07,DB08,DB09,DB10,DB11,DB12,DB13,DB14,DB15,DB16,DB17,DB18,SG00,SG01,SG02,SG03,SG04,SG05,SG06,SG07,SG08,SG09,SG10,SG11,SG12,SG13,SG14,SG15,SG16,SG17,SG18,SG19,SG20,SG21,SG22,SG23,SG24,SG25,SG26,SG27,SG28,SG29,SG30,SG31,SG32,SG33,SG34,SG35,SG36,SG37</p>')
+                               or DB00,DB01,DB02,DB03,DB04,DB05,DB06,DB07,DB08,DB09,DB10,DB11,DB12,DB13,DB14,DB15,DB16,DB17,DB18,SG00,SG01,SG02,SG03,SG04,SG05,SG06,SG07,SG08,SG09,SG10,SG11,SG12,SG13,SG14,SG15,SG16,SG17,SG18,SG19,SG20,SG21,SG22,SG23,SG24,SG25,SG26,SG27,SG28,SG29,SG30,SG31,SG32,SG33,SG34,SG35,SG36,SG37')
                 xyzsetting = gr.Radio(label = "Active",choices = ["Disable","XYZ plot","Effective Block Analyzer"], value ="Disable",type = "index") 
                 with gr.Row(visible = False) as esets:
                     diffcol = gr.Radio(label = "diff image color",choices = ["black","white"], value ="black",type = "value",interactive =True) 
@@ -218,7 +218,7 @@ class Script(modules.scripts.Script):
                 zmen = gr.Textbox(label="Z values",lines=1,value="",interactive =True,elem_id="lbw_zmen")
 
                 exmen = gr.Textbox(label="Range",lines=1,value="0.5,1",interactive =True,elem_id="lbw_exmen",visible = False) 
-                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL,19ALL(FLUX),57ALL(FLUX) also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)  
+                eymen = gr.Textbox(label="Blocks (12ALL,17ALL,20ALL,26ALL,19ALL(FLUX),57ALL(FLUX) also can be used)" ,lines=1,value="BASE,IN00,IN01,IN02,IN03,IN04,IN05,IN06,IN07,IN08,IN09,IN10,IN11,M00,OUT00,OUT01,OUT02,OUT03,OUT04,OUT05,OUT06,OUT07,OUT08,OUT09,OUT10,OUT11",interactive =True,elem_id="lbw_eymen",visible = False)
                 ecount = gr.Number(value=1, label="number of seed", interactive=True, visible = True)           
 
             with gr.Accordion("Weights setting",open = True):
@@ -363,7 +363,54 @@ class Script(modules.scripts.Script):
                 d_true = gr.Checkbox(value = True,visible = False)
                 d_false = gr.Checkbox(value = False,visible = False)
 
+            # PATCH: Two-way sync for Weights textbox <-> sliders (on blur)
+            def get_sliders_by_type(sdver):
+                # Return (sliders, expected_count)
+                if "FLUX" in sdver:
+                    if "full" in sdver:
+                        return blocks_flux_full, 57
+                    else:
+                        return blocks_flux, 19
+                else:
+                    return blocks, 26
+
+            def weights_to_sliders(weights_str, sdver):
+                sliders, count = get_sliders_by_type(sdver)
+                try:
+                    weights = [float(w.strip()) if w.strip() else 0.0 for w in weights_str.split(",")]
+                    weights = (weights + [0.0]*count)[:count]
+                except Exception:
+                    weights = [0.0]*count
+                # Return a value for each slider, pad the outputs for all slider groups
+                pad_blocks = [gr.update(value=w) for w in weights]
+                pad_blocks_flux = [gr.update(value=0.0) for _ in blocks_flux]
+                pad_blocks_flux_full = [gr.update(value=0.0) for _ in blocks_flux_full]
+                if "FLUX" in sdver:
+                    if "full" in sdver:
+                        # Only blocks_flux_full update
+                        pad_blocks = [gr.update(value=0.0) for _ in blocks]
+                        pad_blocks_flux = [gr.update(value=0.0) for _ in blocks_flux]
+                        pad_blocks_flux_full = [gr.update(value=w) for w in weights]
+                    else:
+                        pad_blocks = [gr.update(value=0.0) for _ in blocks]
+                        pad_blocks_flux = [gr.update(value=w) for w in weights]
+                        pad_blocks_flux_full = [gr.update(value=0.0) for _ in blocks_flux_full]
+                else:
+                    # Only blocks update
+                    pad_blocks = [gr.update(value=w) for w in weights]
+                    pad_blocks_flux = [gr.update(value=0.0) for _ in blocks_flux]
+                    pad_blocks_flux_full = [gr.update(value=0.0) for _ in blocks_flux_full]
+                return pad_blocks + pad_blocks_flux + pad_blocks_flux_full
+
+            m_text.blur(
+                fn=weights_to_sliders,
+                inputs=[m_text, m_type],
+                outputs=blocks + blocks_flux + blocks_flux_full
+            )
+            # END PATCH
+
             lbw_useblocks.change(fn=lambda x:gr.update(label = f"LoRA Block Weight : {'Active' if x else 'Not Active'}"),inputs=lbw_useblocks, outputs=[acc])
+
 
         def makeweights(sdver, *all_blocks):
             blocks = all_blocks[:26]
